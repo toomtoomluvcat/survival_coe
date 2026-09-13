@@ -33,7 +33,7 @@ const initialState = {
         {
           id: "lab7-address-board",
           label: "Lab 7 — RIP Address Board",
-          url: "/path_lab7",
+          url: "/lab7",
         },
         {
           id: nanoid(),
