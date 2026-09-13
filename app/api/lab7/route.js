@@ -16,7 +16,7 @@ export async function GET(request) {
     const shareUrls = Object.entries(networkInterfaces())
       .filter(([name]) => !/^(docker|br-|veth|lo$)/.test(name))
       .flatMap(([, addresses]) => addresses.filter((a) => !a.internal && a.family === "IPv4"))
-      .map((a) => `http://${a.address}${port ? `:${port}` : ""}/path_lab7`);
+      .map((a) => `http://${a.address}${port ? `:${port}` : ""}/lab7`);
     return Response.json({ ...await getBoardStore().read(), shareUrls }, { headers: { "Cache-Control": "no-store" } });
   }
   catch (error) { return failure(error); }

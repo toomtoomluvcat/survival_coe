@@ -3,17 +3,54 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createBoard, parseIp, subnetFor, rowErrors, analyzeBoard, toCsv } from "../lib/lab7-address.mjs";
+import { createBoard, parseIp, subnetFor, rowErrors, analyzeBoard, toCsv, gatewayFor, nodeAddresses, routerConfig } from "../lib/lab7-address.mjs";
 import { createBoardStore } from "../lib/lab7-store.mjs";
 
 test("topology has 28 base interfaces, with paired transit and serial links", () => {
   const rows = createBoard().rows;
-  assert.equal(rows.filter((r) => !r.extension).length, 28);
+  assert.equal(rows.filter((r) => !r.extension && r.device !== "pc").length, 28);
   assert.equal(rows.filter((r) => r.extension).length, 2);
   for (const key of new Set(rows.filter((r) => !r.segment.includes("LAN")).map((r) => r.segment))) {
     assert.equal(rows.filter((r) => r.segment === key).length, 2);
   }
-  assert.equal(rows.filter((r) => r.ip).length, 0);
+  assert.equal(rows.filter((r) => r.ip).length, 40);
+  assert.deepEqual(analyzeBoard(rows), []);
+});
+
+test("PCs have unique host IPs and gateways on their own LAN; tooltips select their actual device", () => {
+  const rows = createBoard().rows;
+  for (const pc of rows.filter((r) => r.device === "pc")) {
+    const gateway = gatewayFor(rows, pc);
+    assert.notEqual(pc.ip, gateway);
+    assert.equal(subnetFor(pc.ip, pc.prefix).cidr, subnetFor(gateway, pc.prefix).cidr);
+    assert.deepEqual(nodeAddresses(rows, pc.group, pc.router, "pc"), [pc]);
+    assert.equal(nodeAddresses(rows, pc.group, pc.router, "router")[0].ip, gateway);
+  }
+});
+
+test("both base and extra topologies connect all routers with RIP advertising every attached network", () => {
+  for (const extra of [false, true]) {
+    const rows = createBoard().rows.filter((r) => extra || !r.extension);
+    const networks = new Set(rows.map((r) => subnetFor(r.ip, r.prefix).cidr));
+    assert.equal(networks.size, extra ? 20 : 19);
+    const key = (r) => `G${r.group}-R${r.router}`;
+    const routers = rows.filter((r) => r.device !== "pc");
+    const graph = new Map(routers.map((r) => [key(r), new Set()]));
+    for (const a of routers) for (const b of routers) {
+      if (a.segment === b.segment && key(a) !== key(b)) graph.get(key(a)).add(key(b));
+    }
+    for (const start of graph.keys()) {
+      const distances = new Map([[start, 0]]), queue = [start];
+      for (const current of queue) for (const next of graph.get(current)) if (!distances.has(next)) {
+        distances.set(next, distances.get(current) + 1); queue.push(next);
+      }
+      assert.equal(distances.size, 10);
+      assert.ok(Math.max(...distances.values()) < 16);
+    }
+    for (const row of routers) {
+      assert.ok(routerConfig(rows, row.group, row.router).includes(`network ${subnetFor(row.ip, row.prefix).cidr.split("/")[0]}`));
+    }
+  }
 });
 
 test("IPv4 arithmetic and host validity cover edge cases", () => {

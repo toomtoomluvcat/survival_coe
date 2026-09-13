@@ -94,6 +94,9 @@
 .routerHeading > span { font: 8px ui-monospace, monospace; color: #abb2a5; margin-left: auto; }
 .page .addressRow { width: 100%; display: block; text-align: left; padding: 10px; margin-bottom: 7px; border: 1px dashed #dce2d6; background: #fcfcfa; border-radius: 6px; overflow: hidden; }
 .addressItem { position: relative; }
+.config { margin: 12px 0; font-size: 11px; }
+.config summary { cursor: pointer; color: var(--group-color); }
+.config pre { overflow-x: auto; padding: 10px; background: #f1f4ed; font: 11px/1.7 ui-monospace, monospace; }
 .page .addressRow:hover { border-color: var(--group-color); background: color-mix(in srgb, var(--group-color), white 96%); transform: translateY(-1px); }
 .page .focusedRow { border: 2px solid var(--group-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--group-color), transparent 78%); }
 .rowTop { display: flex; justify-content: space-between; color: #7c8675; font-size: 10px; gap: 4px; }

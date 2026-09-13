@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GROUPS, analyzeBoard, rowErrors, rowLabel, subnetFor } from "@/lib/lab7-address.mjs";
+import { GROUPS, analyzeBoard, rowErrors, rowLabel, subnetFor, nodeAddresses, gatewayFor, routerConfig } from "@/lib/lab7-address.mjs";
 import s from "./board.module.css";
 
 const API = "/api/lab7";
@@ -128,8 +128,9 @@ export default function Lab7Board() {
     if (target) hideTooltip(target.id);
   }
   function topologyTarget(row) {
-    if (row.id.endsWith("-r1-lan")) return `topology-g${row.group}-pc1`;
-    if (row.id.endsWith("-r2-lan")) return `topology-g${row.group}-pc2`;
+    if (row.device === "pc") return `topology-g${row.group}-pc${row.router}`;
+    if (row.id.endsWith("-r1-lan")) return `topology-g${row.group}-r1`;
+    if (row.id.endsWith("-r2-lan")) return `topology-g${row.group}-r2`;
     if (row.id.endsWith("-r1-transit")) return `topology-g${row.group}-r1`;
     if (row.id.endsWith("-r2-transit")) return `topology-g${row.group}-r2`;
     if (row.id.endsWith("-r1-left")) return `topology-link-${row.group - 1}-${row.group}-left`;
@@ -187,15 +188,15 @@ export default function Lab7Board() {
         <div className={s.mapScroll}><div className={s.map}>
           {GROUPS.map((g) => <div key={g} className={s.mapGroup} style={{ "--group-color": COLORS[g - 1] }}>
             <span className={s.mapLabel}>GROUP {String(g).padStart(2, "0")}</span>
-            <button id={`topology-g${g}-pc1`} data-tooltip={ipHint(rows.filter((r) => r.id === `g${g}-r1-lan`), `PC1 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.pcNode} ${focusedNodeId === `topology-g${g}-pc1` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-pc1` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-pc1`, () => focusAddress(rows.find((r) => r.id === `g${g}-r1-lan`)))} aria-label={`ไปที่ IP ของ PC1 กลุ่ม ${g}`}>PC1</button><span className={s.wire} />
-            <button id={`topology-g${g}-r1`} data-tooltip={ipHint(rows.filter((r) => r.group === g && r.router === 1 && !r.extension && !r.id.endsWith("-left") && !r.id.endsWith("-right")), `R1 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.routerNode} ${focusedNodeId === `topology-g${g}-r1` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-r1` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-r1`, () => focusAddress(rows.find((r) => r.id === `g${g}-r1-lan`)))} aria-label={`ไปที่ IP ของ Router 1 กลุ่ม ${g}`}><RouterIcon /><span>R1</span></button>
+            <button id={`topology-g${g}-pc1`} data-tooltip={ipHint(nodeAddresses(rows, g, 1, "pc"), `PC1 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.pcNode} ${focusedNodeId === `topology-g${g}-pc1` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-pc1` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-pc1`, () => focusAddress(rows.find((r) => r.id === `g${g}-r1-pc`)))} aria-label={`ไปที่ IP ของ PC1 กลุ่ม ${g}`}>PC1</button><span className={s.wire} />
+            <button id={`topology-g${g}-r1`} data-tooltip={ipHint(nodeAddresses(rows, g, 1, "router"), `R1 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.routerNode} ${focusedNodeId === `topology-g${g}-r1` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-r1` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-r1`, () => focusAddress(rows.find((r) => r.id === `g${g}-r1-lan`)))} aria-label={`ไปที่ IP ของ Router 1 กลุ่ม ${g}`}><RouterIcon /><span>R1</span></button>
             {g > 1 && <span id={`topology-link-${g - 1}-${g}-left`} role="button" tabIndex="0" data-tooltip={ipHint(rows.filter((r) => r.id === `g${g}-r1-left`), `Serial ฝั่งกลุ่ม ${g} ยังไม่มี IP`)} className={`${s.serialHalf} ${s.serialLeft} ${focusedNodeId === `topology-link-${g - 1}-${g}-left` ? s.focusedNode : ""} ${openTooltipId === `topology-link-${g - 1}-${g}-left` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-link-${g - 1}-${g}-left`, () => focusAddress(rows.find((r) => r.id === `g${g}-r1-left`)))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusAddress(rows.find((r) => r.id === `g${g}-r1-left`)); } }} aria-label={`ไปที่ IP ฝั่งกลุ่ม ${g} ของสาย Serial กลุ่ม ${g - 1} ถึง ${g}`}><span>G{g} · R1</span></span>}
             {g < 5 && <span id={`topology-link-${g}-${g + 1}-right`} role="button" tabIndex="0" data-tooltip={ipHint(rows.filter((r) => r.id === `g${g}-r1-right`), `Serial ฝั่งกลุ่ม ${g} ยังไม่มี IP`)} className={`${s.serialHalf} ${s.serialRight} ${focusedNodeId === `topology-link-${g}-${g + 1}-right` ? s.focusedNode : ""} ${openTooltipId === `topology-link-${g}-${g + 1}-right` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-link-${g}-${g + 1}-right`, () => focusAddress(rows.find((r) => r.id === `g${g}-r1-right`)))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusAddress(rows.find((r) => r.id === `g${g}-r1-right`)); } }} aria-label={`ไปที่ IP ฝั่งกลุ่ม ${g} ของสาย Serial กลุ่ม ${g} ถึง ${g + 1}`}><span>G{g} · R1</span></span>}
             <span className={s.wire} /><button className={s.switchNode} data-tooltip="Switch ไม่มี IP ใน address board" onClick={(e) => tapOrFocus(e, `topology-g${g}-switch`, () => setNotice("Switch ไม่มี IP ใน address board"))} aria-label={`ดูข้อมูล Switch กลุ่ม ${g}`}>SW <small>+ sniffer</small></button><span className={s.wire} />
-            <button id={`topology-g${g}-r2`} data-tooltip={ipHint(rows.filter((r) => r.group === g && r.router === 2 && !r.extension), `R2 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.routerNode} ${focusedNodeId === `topology-g${g}-r2` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-r2` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-r2`, () => focusAddress(rows.find((r) => r.id === `g${g}-r2-lan`)))} aria-label={`ไปที่ IP ของ Router 2 กลุ่ม ${g}`}><RouterIcon /><span>R2</span></button>
+            <button id={`topology-g${g}-r2`} data-tooltip={ipHint(nodeAddresses(rows, g, 2, "router"), `R2 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.routerNode} ${focusedNodeId === `topology-g${g}-r2` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-r2` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-r2`, () => focusAddress(rows.find((r) => r.id === `g${g}-r2-lan`)))} aria-label={`ไปที่ IP ของ Router 2 กลุ่ม ${g}`}><RouterIcon /><span>R2</span></button>
             {extra && g === 3 && <span id="topology-extra-3-4-right" role="button" tabIndex="0" data-tooltip={ipHint(rows.filter((r) => r.id === "g3-r2-extra"), "สายเพิ่มฝั่งกลุ่ม 3 ยังไม่มี IP")} className={`${s.extraHalf} ${s.extraRight} ${focusedNodeId === "topology-extra-3-4-right" ? s.focusedNode : ""} ${openTooltipId === "topology-extra-3-4-right" ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, "topology-extra-3-4-right", () => focusAddress(rows.find((r) => r.id === "g3-r2-extra")))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusAddress(rows.find((r) => r.id === "g3-r2-extra")); } }} aria-label="ไปที่ IP ฝั่งกลุ่ม 3 ของสายเพิ่มกลุ่ม 3 ถึง 4"><span>สายเพิ่ม 3–4</span></span>}
             {extra && g === 4 && <span id="topology-extra-3-4-left" role="button" tabIndex="0" data-tooltip={ipHint(rows.filter((r) => r.id === "g4-r2-extra"), "สายเพิ่มฝั่งกลุ่ม 4 ยังไม่มี IP")} className={`${s.extraHalf} ${s.extraLeft} ${focusedNodeId === "topology-extra-3-4-left" ? s.focusedNode : ""} ${openTooltipId === "topology-extra-3-4-left" ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, "topology-extra-3-4-left", () => focusAddress(rows.find((r) => r.id === "g4-r2-extra")))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusAddress(rows.find((r) => r.id === "g4-r2-extra")); } }} aria-label="ไปที่ IP ฝั่งกลุ่ม 4 ของสายเพิ่มกลุ่ม 3 ถึง 4" />}
-            <span className={s.wire} /><button id={`topology-g${g}-pc2`} data-tooltip={ipHint(rows.filter((r) => r.id === `g${g}-r2-lan`), `PC2 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.pcNode} ${focusedNodeId === `topology-g${g}-pc2` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-pc2` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-pc2`, () => focusAddress(rows.find((r) => r.id === `g${g}-r2-lan`)))} aria-label={`ไปที่ IP ของ PC2 กลุ่ม ${g}`}>PC2</button>
+            <span className={s.wire} /><button id={`topology-g${g}-pc2`} data-tooltip={ipHint(nodeAddresses(rows, g, 2, "pc"), `PC2 กลุ่ม ${g} ยังไม่มี IP`)} className={`${s.pcNode} ${focusedNodeId === `topology-g${g}-pc2` ? s.focusedNode : ""} ${openTooltipId === `topology-g${g}-pc2` ? s.tooltipOpen : ""}`} onClick={(e) => tapOrFocus(e, `topology-g${g}-pc2`, () => focusAddress(rows.find((r) => r.id === `g${g}-r2-pc`)))} aria-label={`ไปที่ IP ของ PC2 กลุ่ม ${g}`}>PC2</button>
           </div>)}
         </div></div>
         <p className={s.mapNote}><span />สายสองฝั่งต้องอยู่ subnet เดียวกัน แต่ใช้คนละ IP <span className={s.grayDot} />LAN และสายเชื่อมคนละวง ต้องไม่ใช้ subnet ทับกัน</p>
@@ -213,16 +214,22 @@ export default function Lab7Board() {
                   <span className={s.rowTop}>{r.label}<span>{flagged.has(r.id) ? "!" : r.ip ? "↗" : "+"}</span></span>
                   <span className={s.address}>{r.ip ? <>{r.ip}<small>/{r.prefix}</small></> : "ยังไม่ได้จด IP"}</span>
                   <span className={s.rowMeta}>{r.port || "ระบุ interface"}<span>{r.segment}</span></span>
+                  {r.device === "pc" && <span className={s.rowNote}>Gateway {gatewayFor(rows, r)} · Mask {subnetFor(r.ip, r.prefix)?.mask}</span>}
                   {r.note && <span className={s.rowNote}>{r.note}</span>}
                 </button>
               </div>)}
+              <details className={s.config}><summary>Config G{g}-R{router}</summary><p>เปลี่ยนชื่อ Interface ให้ตรงกับอุปกรณ์จริง</p><pre>{routerConfig(activeRows, g, router)}</pre></details>
             </div>)}
           </article>)}
         </div>}
         {board && !visibleGroups.length && <div className={s.empty}>ไม่พบข้อมูลที่ค้นหา <button onClick={() => setQuery("")}>ดูทุกกลุ่ม</button></div>}
       </section>
 
-      <section className={s.footnotes}><div><span>01</span><p><b>จดเป็นราย interface</b>เราเตอร์หนึ่งตัวมีหลาย IP ระบุชื่อพอร์ตจริง เช่น Gi0/0 หรือ Serial0/0</p></div><div><span>02</span><p><b>เช็กคู่สายก่อน config</b>ชื่อวง LINK-1-2 เดียวกัน คือปลายสายคู่เดียวกันทั้งสองกลุ่ม</p></div><div><span>03</span><p><b>ค่อย ๆ เติมจากแผนของกลุ่ม</b>เริ่มเป็นช่องว่างทั้งหมด ไม่มี IP ตัวอย่างที่ถูกจองให้โดยอัตโนมัติ</p></div></section>
+      <section className={s.footnotes}>
+        <div><span>01</span><p><b>Address Plan ตามรูปที่ 3</b>ทุกวงใช้ /24 · Router ฝั่ง LAN ใช้ .1 และ PC ใช้ .2 · Transit และ Serial แยก Network · รวม 19 Network ก่อนเพิ่มสาย และ 20 Network หลังเพิ่มสาย</p></div>
+        <div><span>02</span><p><b>ก่อนทดสอบ Ping</b>ตั้ง IP และ Gateway ของ PC ตามตาราง เปิด Interface ทุกเส้นให้ up/up และให้พอร์ตบน Switch ระหว่าง R1–R2 อยู่ VLAN เดียวกัน สำหรับ Serial ตรวจฝั่ง DCE ด้วย show controllers serial แล้วตั้ง clock rate 64000 เฉพาะฝั่ง DCE</p></div>
+        <div><span>03</span><p><b>เปิด RIP บน Router ทั้ง 10 ตัว</b>Config ใช้ RIPv1 ให้ตรงกับตัวอย่าง Broadcast ใน Lab Sheet และทุก Network เป็น /24 รอจน show ip route มี Route R ของปลายทาง แล้ว Ping PC1 ไป PC2 ทั้งในกลุ่มและข้ามกลุ่ม พร้อมทดสอบย้อนกลับ ต้องอนุญาต ICMP ที่ PC ด้วย เว็บนี้เป็นแผน Config ไม่ใช่ผล Ping จากอุปกรณ์จริง</p></div>
+      </section>
       <div className={s.shareInfo}><span>ให้เพื่อนเปิดในวง LAN เดียวกัน</span>{board?.shareUrls?.map((url) => <a key={url} href={url}>{url}</a>)}<small>เครื่องที่รันเว็บต้องเปิดอยู่ · ถ้า Wi-Fi แยกเครื่องลูกข่ายออกจากกัน จะเข้าผ่าน LAN ไม่ได้</small></div>
       <footer className={s.footer}><span>LAB 07 · ROUTING INFORMATION PROTOCOL</span><span>บันทึกร่วมบนเซิร์ฟเวอร์ · ทุกคนที่เข้าถึงหน้านี้แก้ไขได้{board?.updatedAt && ` · ล่าสุด ${new Date(board.updatedAt).toLocaleTimeString("th-TH")}`}</span></footer>
     </div>
