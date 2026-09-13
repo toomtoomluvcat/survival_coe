@@ -179,7 +179,7 @@ export default function Lab7Board() {
     <div className={s.content}>
       <section className={s.hero}>
         <div><div className={s.eyebrow}>COMPUTER NETWORK LABORATORY <span>07 / RIP</span></div>
-          <h1>ต่อกันให้ติด<span> เริ่มที่ IP ไม่ชนกัน.</span></h1>
+          <h1>ถ้ากลับบ้านหลัง ทุ่ม 1<span> ให้ติด F ได้เลย</span></h1>
         </div>
       </section>
 
